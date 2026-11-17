@@ -18,7 +18,9 @@ const msgOf=e=>MSG[e.message]||MSG.network;
 async function secret(key){return API?(await post('/unlock',{key:norm(key),device:device()})).ck:key}
 async function login(key){await secret(key);ls.set('vaultkey',norm(key))}
 async function claim(pid){return (await post('/claim',{payment_id:pid})).key}
-async function open(key){const html=await dec(await secret(key),E);ls.set('vaultkey',norm(key));document.open();document.write(html);document.close();}
+function noPrint(){try{var st=document.createElement('style');st.textContent='@media print{body>*{display:none!important}body::before{content:"Printing and PDF export are disabled for the paid library. Please read it online.";display:block;font:18px system-ui;padding:40px}}';document.head.appendChild(st);
+window.addEventListener('keydown',function(e){var k=(e.key||'').toLowerCase();if((e.ctrlKey||e.metaKey)&&(k==='p'||k==='s')){e.preventDefault()}},true)}catch(e){}}
+async function open(key){const html=await dec(await secret(key),E);ls.set('vaultkey',norm(key));document.open();document.write(html);document.close();noPrint();}
 window.vaultUnlock={dec,norm,login,claim,msgOf};
 if(!E)return;
 function ui(msg){
