@@ -2,7 +2,10 @@
 window.SHOP = {
   name: "Full-Stack Interview Vault: .NET + Angular",
   tagline: "Lesson-style study notes for senior .NET and Angular interviews",
-  price: 999,                 // INR, shown on the page. Must match your Razorpay payment page/button
+  price: 149,                 // INR, shown on the page. Must match your Razorpay payment page/button
+  offerLabel: "Launch price", // small label above the price; set "" to hide
+  regularPrice: 0,            // optional: show a crossed-out price ONLY if you will really charge it later, e.g. 999
+  reviews: [],                // REAL reviews only, e.g. { name: "Name", role: "SDE-2", company: "Company", text: "What they actually said" }
   currency: "INR",
   // Razorpay (no server needed). Use ONE of these:
   razorpayButtonId: "",       // e.g. "pl_Abc123XYZ" from Razorpay Dashboard > Payment Button
