@@ -1,4 +1,6 @@
 const PAGES=[
+["week.html","This week: first 2 questions (free)","CRUD API and JWT authentication, answered in depth","This week"],
+["week-lessons.html","This week: .NET Core and Web API scenarios (full set)","CRUD API, JWT, exception middleware, custom middleware, ILogger, repository, pagination, versioning, caching and Redis","This week"],
 ["angular-lessons.html","Angular lessons (full course)","Components, signals, RxJS, routing, forms, security","Lesson courses"],
 ["csharp-lessons.html","C# and .NET lessons (full course)","Runtime, memory, async, LINQ, modern C#","Lesson courses"],
 ["csharp-modern.html","Modern C# (C# 9 to 14)","Records, primary constructors, collection expressions, field keyword, patterns, nullable","Lesson courses"],

@@ -1,0 +1,559 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>This week's interview questions: .NET Core and Web API scenarios</title><script>(function(){try{var t=localStorage.getItem('vtheme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script><link rel="stylesheet" href="style.css"></head><body><div id="app"></div><script type="text/plain" id="src">
+# This week's interview questions: .NET Core and Web API scenarios
+> Week of 17 Nov 2026. 9 practical scenarios, each answered in depth: the story, the idea, how it works, full code, pitfalls, enterprise use and interview Q&A with a one-line answer.
+
+## Free preview: the first 2 questions
+
+### [M] Lesson 1: Build a REST API with CRUD operations
+#### 1. The problem
+The Angular team needs `/api/products` by Friday. The quick prototype returns the EF Core entity straight from the controller, answers `200 OK` for everything (even "not found"), accepts any JSON, and the PUT endpoint silently overwrites a colleague's edit made a minute earlier. Two weeks later a client posts `"price": -5` and a mobile app crashes on a field you never meant to expose. Interviewers ask "build a CRUD API" to see whether you handle the unglamorous parts: contracts, status codes, validation, concurrency and async.
+
+#### 2. The idea
+Think of a **library desk**. Visitors fill in a form (the request DTO), the librarian checks it (validation), updates the ledger (the entity in the database) and hands back a receipt (the response DTO). Nobody is allowed to walk behind the desk and edit the ledger directly. The form and the ledger are deliberately different documents, so you can change one without breaking the other.
+
+CRUD maps onto HTTP like this: Create is `POST`, Read is `GET`, Update is `PUT` (replace) or `PATCH` (partial), Delete is `DELETE`. The resource is a noun in the URL (`/api/products/42`), the verb is the HTTP method, and the outcome is a status code.
+
+#### 3. How it works
+```
+POST /api/products   body: CreateProductRequest
+  -> routing picks ProductsController.Create
+  -> [ApiController] binds JSON to the DTO and validates it
+       invalid -> 400 ProblemDetails with an "errors" dictionary (action never runs)
+  -> map DTO -> Product entity, db.Add, SaveChangesAsync
+  -> 201 Created + Location: /api/products/7 + ProductDto body
+
+GET /api/products/7  -> find by id -> null ? 404 : 200 + ETag
+PUT /api/products/7  -> find -> null ? 404 : copy fields, new Version -> SaveChanges -> 204
+                        concurrency clash (someone saved first) -> 409 Conflict
+DELETE /api/products/7 -> find -> null ? 404 : remove -> 204
+```
+Status codes you should be able to justify: 200 for a read, 201 for a create (with a `Location` header pointing to the new resource), 204 when there is nothing to return, 400 for malformed or invalid input, 404 for a missing resource, 409 for a conflict, 412 when a precondition such as `If-Match` fails.
+
+**Idempotency.** `GET`, `PUT` and `DELETE` are idempotent: repeating the call leaves the server in the same state, so a client may retry after a timeout. `POST` is not: retrying a create can make two products. (For payments, accept an `Idempotency-Key` header and store it; that is a separate lesson.) Whether the second `DELETE` returns 404 or 204 is a style choice; the server state, "the product is gone", is identical either way.
+
+#### 4. Implementation
+Packages (SQLite keeps the sample runnable anywhere; swap the provider for SQL Server in real projects):
+```
+dotnet new webapi -n ShopApi --use-controllers
+cd ShopApi
+dotnet add package Microsoft.EntityFrameworkCore.Sqlite
+```
+`Models/Product.cs`: the entity is the database shape and never leaves the API.
+```csharp
+namespace ShopApi.Models;
+
+public class Product
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public decimal Price { get; set; }
+    public int Stock { get; set; }
+
+    // Optimistic concurrency token. On SQL Server use: [Timestamp] public byte[] RowVersion { get; set; } = [];
+    // SQLite has no rowversion column, so we change this Guid by hand on every update.
+    public Guid Version { get; set; } = Guid.NewGuid();
+}
+```
+`Models/Dtos.cs`: the contract. Records with `[property: ...]` put the validation attributes on the generated properties.
+```csharp
+using System.ComponentModel.DataAnnotations;
+namespace ShopApi.Models;
+
+public record ProductDto(int Id, string Name, decimal Price, int Stock);
+
+public record CreateProductRequest(
+    [property: Required, StringLength(100, MinimumLength = 2)] string Name,
+    [property: Range(0.01, 1_000_000)] decimal Price,
+    [property: Range(0, 100_000)] int Stock);
+
+// PUT replaces the whole resource, so it carries the same required fields.
+public record UpdateProductRequest(
+    [property: Required, StringLength(100, MinimumLength = 2)] string Name,
+    [property: Range(0.01, 1_000_000)] decimal Price,
+    [property: Range(0, 100_000)] int Stock);
+```
+`Data/AppDb.cs`
+```csharp
+using Microsoft.EntityFrameworkCore;
+using ShopApi.Models;
+namespace ShopApi.Data;
+
+public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
+{
+    public DbSet<Product> Products => Set<Product>();
+
+    protected override void OnModelCreating(ModelBuilder b)
+    {
+        b.Entity<Product>(e =>
+        {
+            e.Property(p => p.Name).HasMaxLength(100).IsRequired();
+            e.Property(p => p.Price).HasPrecision(18, 2);
+            e.Property(p => p.Version).IsConcurrencyToken();   // EF adds "WHERE Version = @original" to UPDATE/DELETE
+        });
+    }
+}
+```
+`Controllers/ProductsController.cs`
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ShopApi.Data;
+using ShopApi.Models;
+namespace ShopApi.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class ProductsController(AppDb db) : ControllerBase
+{
+    private static ProductDto ToDto(Product p) => new(p.Id, p.Name, p.Price, p.Stock);
+    private static string ETag(Product p) => $"\"{p.Version}\"";
+
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll(CancellationToken ct) =>
+        await db.Products.AsNoTracking().OrderBy(p => p.Id)
+            .Select(p => new ProductDto(p.Id, p.Name, p.Price, p.Stock))   // project in SQL, no entity leaves the layer
+            .ToListAsync(ct);
+
+    [HttpGet("{id:int}", Name = "GetProduct")]
+    public async Task<ActionResult<ProductDto>> Get(int id, CancellationToken ct)
+    {
+        var p = await db.Products.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (p is null) return NotFound();
+        Response.Headers.ETag = ETag(p);
+        return ToDto(p);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<ProductDto>> Create(CreateProductRequest req, CancellationToken ct)
+    {
+        var p = new Product { Name = req.Name, Price = req.Price, Stock = req.Stock };
+        db.Products.Add(p);
+        await db.SaveChangesAsync(ct);
+        return CreatedAtRoute("GetProduct", new { id = p.Id }, ToDto(p));   // 201 + Location header
+    }
+
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, UpdateProductRequest req, CancellationToken ct)
+    {
+        var p = await db.Products.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (p is null) return NotFound();
+
+        // Optional HTTP precondition: client sends the ETag it last read.
+        if (Request.Headers.IfMatch.Count > 0 && Request.Headers.IfMatch != ETag(p))
+            return StatusCode(StatusCodes.Status412PreconditionFailed);
+
+        p.Name = req.Name; p.Price = req.Price; p.Stock = req.Stock;
+        p.Version = Guid.NewGuid();                       // new version for the next reader
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails { Title = "The product was changed by someone else.", Status = 409 });
+        }
+        return NoContent();                               // 204
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    {
+        var p = await db.Products.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (p is null) return NotFound();
+        db.Products.Remove(p);
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+}
+```
+`Program.cs`
+```csharp
+using Microsoft.EntityFrameworkCore;
+using ShopApi.Data;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddDbContext<AppDb>(o => o.UseSqlite(builder.Configuration.GetConnectionString("Default")));
+builder.Services.AddControllers();
+builder.Services.AddProblemDetails();                     // consistent error shape
+
+var app = builder.Build();
+using (var scope = app.Services.CreateScope())            // demo only; use migrations in real projects
+    scope.ServiceProvider.GetRequiredService<AppDb>().Database.EnsureCreated();
+
+app.UseExceptionHandler();
+app.UseHttpsRedirection();
+app.MapControllers();
+app.Run();
+```
+`appsettings.json` (add this section)
+```json
+{ "ConnectionStrings": { "Default": "Data Source=shop.db" } }
+```
+Try it (replace the port with the one printed by `dotnet run`):
+```
+curl -i -X POST http://localhost:5000/api/products -H "Content-Type: application/json" -d '{"name":"Keyboard","price":49.9,"stock":10}'
+   -> 201 Created, Location: http://localhost:5000/api/products/1
+curl -i http://localhost:5000/api/products/1                -> 200, ETag: "..."
+curl -i -X POST http://localhost:5000/api/products -H "Content-Type: application/json" -d '{"name":"","price":-1,"stock":1}'
+   -> 400 with {"errors":{"Name":[...],"Price":[...]}}
+curl -i -X PUT http://localhost:5000/api/products/1 -H "Content-Type: application/json" -d '{"name":"Keyboard Pro","price":59,"stock":8}'  -> 204
+curl -i -X DELETE http://localhost:5000/api/products/1      -> 204, repeat -> 404
+```
+**PATCH.** `PUT` needs the full body. For partial updates either accept a request with nullable fields and apply only the non-null ones, or use JSON Patch (RFC 6902) through `Microsoft.AspNetCore.JsonPatch`, which in controllers depends on Newtonsoft.Json formatters. The nullable-fields approach is simpler, but it cannot distinguish "set to null" from "not sent"; JSON Merge Patch or JSON Patch can.
+
+**FluentValidation instead of attributes.** Attributes are fine for simple rules. When rules depend on other fields or on the database, put them in `AbstractValidator<CreateProductRequest>` classes and call them in the endpoint or a filter. The `FluentValidation.AspNetCore` auto-validation package is no longer maintained, so the usual advice is to register validators from `FluentValidation.DependencyInjectionExtensions` and invoke `ValidateAsync` explicitly, returning `ValidationProblem(...)`.
+
+#### 5. Pitfalls
+- Returning the entity from the controller: it exposes internal columns, causes serializer cycles and couples your contract to your table. Binding to the entity is worse (over-posting: a client sets `Id` or `IsAdmin`).
+- `200 OK` with an error body, or `500` for a missing record.
+- Blocking calls (`.Result`, `.Wait()`) or synchronous EF calls on a hot API: they hold a thread-pool thread per request and cause starvation under load. Use `async`/`await` end to end and pass the `CancellationToken`, so a closed browser tab cancels the query.
+- Loading all rows (`ToListAsync()` with no paging or filter) on a table that will grow; track-everything queries for read-only endpoints (use `AsNoTracking`).
+- `PUT` implemented as "create if missing" without saying so, or `POST` used for every operation.
+- Ignoring concurrency: last write wins and silently destroys data.
+- Validation only in Angular. The client is advice; the server is the authority.
+
+#### 6. At work
+This is the daily bread of enterprise APIs. Real versions add paging and filtering on `GET`, an OpenAPI document that Angular generates a typed client from, authentication on every endpoint, a service or handler layer so controllers stay thin, a global exception handler for the unexpected failures, and integration tests with `WebApplicationFactory`. On SQL Server the concurrency token is a `rowversion` column, surfaced to the client as an ETag, so two people editing the same record get a clear 409 or 412 instead of a silent overwrite.
+
+#### 7. Interview questions
+**Q: Why use DTOs instead of returning entities?** DTOs are the public contract; entities are the storage model. Separating them stops over-posting, hides sensitive or internal columns, avoids serializer cycles and lets the schema and the API evolve independently. The cost is mapping code, which you can write by hand or generate.
+> say: "Entities are for the database, DTOs are for the wire; I never bind to or return an entity."
+
+**Q: Which status codes does a CRUD API return, and why?** 201 with a `Location` header for a create, 200 for a read, 204 for update or delete with no body, 400 for invalid input, 404 for a missing resource, 409 for a conflict, 412 when an `If-Match` precondition fails. The codes let clients react without parsing text.
+> say: "201 with Location on create, 204 on update and delete, 400 for bad input, 404 when missing, 409 on conflict."
+
+**Q: What is idempotency and which verbs have it?** Repeating an idempotent call leaves the server in the same state. `GET`, `PUT` and `DELETE` are idempotent, `POST` is not. That is what makes retrying after a timeout safe for them. For a non-idempotent `POST` such as a payment I accept an idempotency key and return the stored result on a repeat.
+> say: "GET, PUT and DELETE can be retried safely; POST needs an idempotency key when duplicates are costly."
+
+**Q: PUT or PATCH for updates?** `PUT` replaces the whole resource and is simple and idempotent. `PATCH` changes some fields, saves bandwidth on large resources and avoids lost updates on fields the client did not touch, but needs a patch format or nullable fields and more careful semantics.
+> say: "PUT replaces the whole resource, PATCH changes part of it; I default to PUT unless payloads are large."
+
+**Q: How do you stop two users overwriting each other?** Optimistic concurrency: a version column (`rowversion` on SQL Server) marked as a concurrency token. EF adds it to the `WHERE` clause of the update; if no row matches, it throws `DbUpdateConcurrencyException`, which I translate to 409. Exposing the version as an ETag and honouring `If-Match` lets clients detect the clash before sending a large body. Pessimistic locking is rarely right for web APIs because locks outlive requests.
+> say: "A version column as a concurrency token, surfaced as an ETag, and a 409 or 412 when it does not match."
+
+**Q: Where does validation happen and how do errors reach the client?** At the boundary, before the action body runs. `[ApiController]` validates DataAnnotations and returns a 400 `ValidationProblemDetails` with an `errors` dictionary that the Angular form can map to controls. Rules needing the database (uniqueness) are checked in the service and reported as 409 or 422, and a database unique index remains the last line of defence.
+> say: "Validate at the edge, return a ProblemDetails with an errors map, and back uniqueness with a database index."
+
+**Q: Why async all the way, and what is the CancellationToken for?** Async frees the thread while the database works, so the same pool serves more requests. The token, bound automatically from `HttpContext.RequestAborted`, cancels the database call if the client disconnects, so you do not waste work. Mixing blocking calls into async code risks thread-pool starvation.
+> say: "Async frees threads during IO, and the cancellation token stops work nobody is waiting for."
+
+**Q: How would you add paging, filtering and sorting?** Query-string parameters (`page`, `pageSize`, `sort`, filters) with an upper bound on page size, `Skip`/`Take` over a stable `OrderBy`, projection to DTOs in SQL, and the total count in a header or a wrapper object. For very deep or fast-changing lists, keyset pagination avoids the cost and drift of large offsets.
+> say: "Bounded page size, a stable sort, Skip and Take on the server, and keyset paging for huge tables."
+
+### [M] Lesson 2: Implement JWT authentication
+#### 1. The problem
+Your API is public, so anyone can call `DELETE /api/products/1`. You add a login endpoint and the first idea is a session on the server. Then the mobile app, the Angular app and a partner service all need access, and the API runs on three instances behind a load balancer. Sessions in one server's memory do not follow the user. You need proof of identity that any instance can verify on its own, without asking a central store on every request. That proof is a signed token.
+
+#### 2. The idea
+A JWT is a **festival wristband**. At the gate (the login endpoint) staff check your ticket (password) once and fasten a tamper-evident band to your wrist (the signed token) showing who you are and which areas you may enter. Every bar and stage (every API instance) only needs to look at the band and check its seal; nobody phones the gate. The band expires at midnight (short lifetime). If you must stay longer, you show a separate stamped card (the refresh token) at the gate to get a fresh band.
+
+A JWT has three base64url parts: header (algorithm), payload (claims such as `sub`, `role`, `exp`) and signature. It is **signed, not encrypted**: anyone can read the payload, so never put secrets in it. The signature proves nobody changed it.
+
+#### 3. How it works
+```
+LOGIN   POST /api/auth/login {email, password}
+          -> find user -> PasswordHasher.VerifyHashedPassword
+          -> access token (JWT, 10-15 min)  returned in the body
+          -> refresh token (random, 7-30 days) stored hashed in DB, sent as HttpOnly cookie
+CALL    GET /api/products   Authorization: Bearer <access token>
+          -> UseAuthentication: JwtBearer validates signature, issuer, audience, lifetime
+          -> builds ClaimsPrincipal (HttpContext.User)
+          -> UseAuthorization: [Authorize] / role / policy checks
+          -> 401 if no valid token, 403 if valid token but not allowed
+REFRESH POST /api/auth/refresh (cookie)
+          -> look up hash; valid + unused -> mark used, issue new access + new refresh (rotation)
+          -> already-used token presented again -> theft suspected -> revoke the whole token family
+```
+Key vocabulary: **authentication** answers "who are you" (401 when missing or invalid); **authorization** answers "may you do this" (403). **Claims** are facts about the user. **Roles** are a claim type for coarse grouping; **policies** express rules such as "must be in role Admin or have claim `department=finance`".
+
+#### 4. Implementation
+Packages:
+```
+dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
+dotnet add package Microsoft.Extensions.Identity.Core       # PasswordHasher<TUser>
+```
+Secrets stay out of source control. In development use user-secrets; in production use environment variables or a vault (Azure Key Vault, AWS Secrets Manager). The HS256 key must be at least 32 bytes.
+```
+dotnet user-secrets init
+dotnet user-secrets set "Jwt:Key" "replace-with-at-least-32-random-bytes-here!!"
+```
+`appsettings.json` (non-secret settings only)
+```json
+{
+  "Jwt": { "Issuer": "shop-api", "Audience": "shop-clients", "AccessMinutes": 10, "RefreshDays": 14 }
+}
+```
+`Auth/JwtOptions.cs`
+```csharp
+namespace ShopApi.Auth;
+public class JwtOptions
+{
+    public string Issuer { get; set; } = "";
+    public string Audience { get; set; } = "";
+    public string Key { get; set; } = "";
+    public int AccessMinutes { get; set; } = 10;
+    public int RefreshDays { get; set; } = 14;
+}
+```
+`Models/AuthEntities.cs`
+```csharp
+namespace ShopApi.Models;
+public class User
+{
+    public int Id { get; set; }
+    public string Email { get; set; } = "";
+    public string PasswordHash { get; set; } = "";
+    public string Role { get; set; } = "User";
+}
+public class RefreshToken
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public string TokenHash { get; set; } = "";       // SHA-256 of the random token; the raw token is never stored
+    public DateTime ExpiresAt { get; set; }
+    public DateTime? UsedAt { get; set; }             // set when rotated
+    public DateTime? RevokedAt { get; set; }
+}
+```
+Add `DbSet<User> Users` and `DbSet<RefreshToken> RefreshTokens` to `AppDb`, with a unique index on `User.Email` and on `RefreshToken.TokenHash`.
+
+`Auth/TokenService.cs`
+```csharp
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
+using ShopApi.Models;
+namespace ShopApi.Auth;
+
+public class TokenService(IOptions<JwtOptions> opt)
+{
+    private readonly JwtOptions _o = opt.Value;
+
+    public string CreateAccessToken(User u)
+    {
+        var descriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(
+            [
+                new Claim("sub", u.Id.ToString()),
+                new Claim("email", u.Email),
+                new Claim("role", u.Role),
+                new Claim("jti", Guid.NewGuid().ToString())
+            ]),
+            Issuer = _o.Issuer,
+            Audience = _o.Audience,
+            Expires = DateTime.UtcNow.AddMinutes(_o.AccessMinutes),
+            SigningCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_o.Key)), SecurityAlgorithms.HmacSha256)
+        };
+        return new JsonWebTokenHandler().CreateToken(descriptor);
+    }
+
+    public static string NewRefreshToken() => Base64Url(RandomNumberGenerator.GetBytes(64));
+    public static string Hash(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+    private static string Base64Url(byte[] b) => Convert.ToBase64String(b).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+}
+```
+`Controllers/AuthController.cs`
+```csharp
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using ShopApi.Auth;
+using ShopApi.Data;
+using ShopApi.Models;
+namespace ShopApi.Controllers;
+
+public record RegisterRequest(string Email, string Password);
+public record LoginRequest(string Email, string Password);
+public record TokenResponse(string AccessToken, int ExpiresInSeconds);
+
+[ApiController, Route("api/auth")]
+public class AuthController(AppDb db, TokenService tokens, IOptions<JwtOptions> opt) : ControllerBase
+{
+    private readonly PasswordHasher<User> _hasher = new();
+    private const string Cookie = "refresh";
+
+    [HttpPost("register")]
+    public async Task<IActionResult> Register(RegisterRequest r, CancellationToken ct)
+    {
+        if (await db.Users.AnyAsync(u => u.Email == r.Email, ct)) return Conflict();
+        var u = new User { Email = r.Email };
+        u.PasswordHash = _hasher.HashPassword(u, r.Password);          // salted PBKDF2, format includes the parameters
+        db.Users.Add(u); await db.SaveChangesAsync(ct);
+        return StatusCode(StatusCodes.Status201Created);
+    }
+
+    [HttpPost("login")]
+    public async Task<ActionResult<TokenResponse>> Login(LoginRequest r, CancellationToken ct)
+    {
+        var u = await db.Users.FirstOrDefaultAsync(x => x.Email == r.Email, ct);
+        var result = u is null ? PasswordVerificationResult.Failed : _hasher.VerifyHashedPassword(u, u.PasswordHash, r.Password);
+        if (result == PasswordVerificationResult.Failed) return Unauthorized();   // same answer for unknown user and wrong password
+        if (result == PasswordVerificationResult.SuccessRehashNeeded) u!.PasswordHash = _hasher.HashPassword(u, r.Password);
+        return await IssueAsync(u!, ct);
+    }
+
+    [HttpPost("refresh")]
+    public async Task<ActionResult<TokenResponse>> Refresh(CancellationToken ct)
+    {
+        if (!Request.Cookies.TryGetValue(Cookie, out var raw)) return Unauthorized();
+        var hash = TokenService.Hash(raw);
+        var t = await db.RefreshTokens.FirstOrDefaultAsync(x => x.TokenHash == hash, ct);
+        if (t is null || t.RevokedAt is not null || t.ExpiresAt < DateTime.UtcNow) return Unauthorized();
+
+        if (t.UsedAt is not null)   // reuse of a rotated token: someone has a stolen copy
+        {
+            await db.RefreshTokens.Where(x => x.UserId == t.UserId && x.RevokedAt == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, DateTime.UtcNow), ct);
+            return Unauthorized();
+        }
+        t.UsedAt = DateTime.UtcNow;                         // rotation: one use only
+        var user = await db.Users.FindAsync([t.UserId], ct);
+        return await IssueAsync(user!, ct);
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(CancellationToken ct)
+    {
+        if (Request.Cookies.TryGetValue(Cookie, out var raw))
+        {
+            var hash = TokenService.Hash(raw);
+            await db.RefreshTokens.Where(x => x.TokenHash == hash)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, DateTime.UtcNow), ct);
+        }
+        Response.Cookies.Delete(Cookie, new CookieOptions { Path = "/api/auth" });
+        return NoContent();
+    }
+
+    private async Task<ActionResult<TokenResponse>> IssueAsync(User u, CancellationToken ct)
+    {
+        var o = opt.Value;
+        var refresh = TokenService.NewRefreshToken();
+        db.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = u.Id, TokenHash = TokenService.Hash(refresh), ExpiresAt = DateTime.UtcNow.AddDays(o.RefreshDays)
+        });
+        await db.SaveChangesAsync(ct);
+        Response.Cookies.Append(Cookie, refresh, new CookieOptions
+        {
+            HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict,   // use None + Secure if the SPA is on another site
+            Path = "/api/auth", Expires = DateTimeOffset.UtcNow.AddDays(o.RefreshDays)
+        });
+        return new TokenResponse(tokens.CreateAccessToken(u), o.AccessMinutes * 60);
+    }
+}
+```
+`Program.cs` wiring (add to the earlier file)
+```csharp
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using ShopApi.Auth;
+
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));   // Key comes from user-secrets / env var Jwt__Key
+builder.Services.AddSingleton<TokenService>();
+
+var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()!;
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(o =>
+    {
+        o.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true, ValidIssuer = jwt.Issuer,
+            ValidateAudience = true, ValidAudience = jwt.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
+            ValidAlgorithms = [SecurityAlgorithms.HmacSha256],   // refuse any other algorithm
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30),                // default is 5 minutes
+            NameClaimType = "email",
+            RoleClaimType = "role"                               // we emit short claim names, so tell ASP.NET where the role is
+        };
+    });
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("AdminOnly", p => p.RequireRole("Admin"))
+    .AddPolicy("CanEditProducts", p => p.RequireAssertion(c =>
+        c.User.IsInRole("Admin") || c.User.HasClaim("department", "catalog")));
+
+// pipeline order matters: authentication first, then authorization, then endpoints
+app.UseAuthentication();
+app.UseAuthorization();
+```
+Protect endpoints:
+```csharp
+[Authorize]                                   // any signed-in user
+public class ProductsController : ControllerBase
+{
+    [HttpGet] public IActionResult GetAll() => Ok();                 // inherits [Authorize]
+    [HttpDelete("{id:int}"), Authorize(Policy = "AdminOnly")]        // stricter on one action
+    public IActionResult Delete(int id) => NoContent();
+    [AllowAnonymous, HttpGet("public")] public IActionResult Health() => Ok();
+}
+```
+Try it (curl with a cookie jar; `-k` accepts the dev certificate):
+```
+curl -k -X POST https://localhost:7001/api/auth/register -H "Content-Type: application/json" -d '{"email":"a@x.com","password":"Pa$$w0rd!"}'
+curl -k -c jar.txt -X POST https://localhost:7001/api/auth/login -H "Content-Type: application/json" -d '{"email":"a@x.com","password":"Pa$$w0rd!"}'
+   -> {"accessToken":"eyJ...","expiresInSeconds":600}  and Set-Cookie: refresh=...
+curl -k https://localhost:7001/api/products -H "Authorization: Bearer eyJ..."     -> 200 (without header: 401)
+curl -k -b jar.txt -c jar.txt -X POST https://localhost:7001/api/auth/refresh      -> new access token, cookie rotated
+```
+**Angular side.** Keep the access token in memory (a service field), not in `localStorage`, because any XSS can read `localStorage`. The refresh token lives in the HttpOnly cookie that JavaScript cannot read. An HTTP interceptor attaches `Authorization: Bearer`, and on a 401 it calls `/auth/refresh` once (with `withCredentials: true`), then retries the original request; concurrent 401s should share one refresh call. A cookie sent cross-origin also needs CORS configured with `AllowCredentials` and an explicit origin (never `*`).
+
+#### 5. Pitfalls
+- A weak or committed signing key. Anyone who has it can mint tokens for any user. Rotate it, load it from a secret store, use 256 bits or more.
+- Long-lived access tokens. They cannot be revoked before expiry, so keep them short (minutes) and put long sessions into rotating refresh tokens.
+- Treating the payload as private. It is only encoded. Do not put passwords, personal data or internal ids you would not show.
+- Skipping validation switches (`ValidateIssuer`, `ValidateAudience`, `ValidateLifetime`) "to make it work", or accepting any algorithm. Pin `ValidAlgorithms`.
+- Large default clock skew (5 minutes) making expired tokens live longer than you think.
+- Storing tokens in `localStorage` or putting them in URLs; logging them.
+- Fast hashes (SHA-256, MD5) for passwords. Use a slow, salted algorithm: `PasswordHasher<T>` (PBKDF2 with a per-user salt) or Argon2/bcrypt libraries.
+- Telling attackers whether the email or the password was wrong; no rate limiting or lockout on login.
+- Putting role checks only in Angular. Route guards are for user experience; the API must enforce authorization.
+- HS256 with the same secret shared across many services: every service can forge tokens. With multiple services or third parties prefer RS256/ES256: the identity provider signs with a private key and services verify with the public key.
+
+#### 6. At work
+Most companies do not hand-roll this. They use an identity provider (Microsoft Entra ID, Auth0, Keycloak, Duende IdentityServer) that issues tokens through OAuth 2.0 and OpenID Connect, and the API only validates them (`AddJwtBearer` with an `Authority` and audience, keys fetched from the discovery document). Writing the issuing code yourself is still the standard interview exercise because it shows you understand claims, validation, expiry, refresh and storage. In production add HTTPS everywhere, rate limiting on login, audit logging of sign-ins, and a cleanup job that deletes expired refresh tokens.
+
+#### 7. Interview questions
+**Q: How does JWT authentication work in ASP.NET Core?** The client logs in, the server returns a signed token containing claims. On each request the client sends it in the `Authorization: Bearer` header. The JwtBearer middleware validates the signature, issuer, audience and expiry, builds a `ClaimsPrincipal`, and the authorization middleware applies `[Authorize]`, roles and policies. No server-side session is needed, which is why it scales across instances.
+> say: "Login issues a signed token; every request carries it; the middleware validates the signature, issuer, audience and expiry, and authorization uses the claims."
+
+**Q: What is inside a JWT and is it secure to put data there?** Header, payload and signature, each base64url-encoded. The signature protects integrity, not confidentiality, so anyone can read the payload. Put only identifiers and authorization claims, never secrets. If you need confidentiality use JWE or keep the data server-side.
+> say: "It is signed, not encrypted: tamper-proof but readable, so no secrets in the payload."
+
+**Q: Access token versus refresh token?** The access token is short-lived and sent on every API call, so a leak has a small window. The refresh token is long-lived, sent only to the refresh endpoint, stored hashed on the server so it can be revoked, and rotated on each use. Reuse of an already-used refresh token signals theft, so I revoke that user's token family.
+> say: "Short-lived access token for calls, rotating revocable refresh token for renewal, and reuse detection for theft."
+
+**Q: How do you log a user out or revoke access with stateless tokens?** You cannot recall an issued access token, so keep it short and revoke the refresh token on logout. For immediate cutoff (a fired employee) add a denylist keyed by `jti` or a per-user token version checked in `OnTokenValidated`, accepting a small lookup cost, or reduce the access lifetime further.
+> say: "Revoke the refresh token and keep access tokens short; for instant cutoff, check a denylist or a token version."
+
+**Q: Where should the Angular app store the tokens?** Access token in memory, refresh token in an HttpOnly, Secure, SameSite cookie. `localStorage` and `sessionStorage` are readable by any injected script, so an XSS bug would leak them. The trade-off is that cookies bring CSRF considerations, which SameSite and a refresh endpoint that needs no state-changing side effects keep small.
+> say: "Access token in memory, refresh token in an HttpOnly cookie, never localStorage."
+
+**Q: HS256 or RS256?** HS256 uses one shared secret to sign and verify, which is fine for one service that both issues and validates. RS256 uses a private key to sign and a public key to verify, so many services can verify without being able to forge tokens, and keys can be published through a JWKS endpoint and rotated. Use asymmetric signing with multiple consumers.
+> say: "HS256 for a single service, RS256 when many services must verify without being able to issue."
+
+**Q: How do you handle roles and more detailed rules?** Roles are a simple claim and work with `[Authorize(Roles = "Admin")]`, but they grow rigid. Policies give named, testable rules with requirements and handlers, for example claims, tenant ownership or resource-based checks through `IAuthorizationService`. I keep claims coarse and check resource ownership in code, because a token cannot know every record.
+> say: "Roles for coarse access, policies for rules, and resource ownership checked in the handler, not in the token."
+
+**Q: What are the common JWT vulnerabilities?** A weak or leaked key; accepting the `none` algorithm or confusing algorithms (so pin `ValidAlgorithms`); skipping issuer, audience or lifetime validation; long-lived tokens; tokens in `localStorage` exposed to XSS; and tokens written to logs or URLs. Each has a direct fix: strong key in a vault, strict validation parameters, short lifetimes, cookies for refresh, and redaction in logs.
+> say: "Weak keys, loose validation, long lifetimes and storing tokens where scripts can read them."
+
+
+## Questions 3 to 9 are in the full set
+
+- **Question 3:** Global exception handling middleware
+- **Question 4:** Custom middleware (timing, correlation id, API key)
+- **Question 5:** Logging with ILogger (structured logs, scopes, Serilog)
+- **Question 6:** The repository pattern (and the honest debate about EF Core)
+- **Question 7:** Pagination API using Skip/Take
+- **Question 8:** API versioning
+- **Question 9:** In-memory caching and Redis
+
+> say: Each of these has full code, pitfalls and interview answers like the two above. [Get the full set](index.html#buy) for the launch price, or open the [free sample lessons](sample.html).
+
+</script><script src="app.js"></script></body></html>
