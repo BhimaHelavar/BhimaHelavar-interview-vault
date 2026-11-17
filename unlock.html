@@ -1,0 +1,9 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unlock</title><link rel="stylesheet" href="landing.css"></head><body>
+<div class="lockbox"><h1>Enter your access key</h1><p>You received it after payment.</p><input id="k" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off"><button class="btn" id="go">Open the library</button><p class="err" id="err"></p><p class="sm"><a href="index.html">Overview</a></p></div>
+<script src="config.js"></script><script src="unlock.js"></script>
+<script>
+(function(){const ok=async k=>{try{const p=await fetch('check.json').then(r=>r.json());await vaultUnlock.dec(k,p);try{localStorage.setItem('vaultkey',vaultUnlock.norm(k))}catch(e){}location.replace('library.html')}catch(e){document.getElementById('err').textContent='That key did not work. Check for typos.'}};
+document.getElementById('go').onclick=()=>ok(document.getElementById('k').value);
+document.getElementById('k').addEventListener('keydown',e=>{if(e.key==='Enter')ok(e.target.value)});
+const m=location.hash.match(/key=([A-Za-z0-9-]+)/);if(m){history.replaceState(null,'',location.pathname);ok(m[1])}})();
+</script></body></html>

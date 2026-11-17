@@ -1,0 +1,126 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Free sample lessons</title><link rel="stylesheet" href="style.css"></head><body><div id="app"></div><script type="text/plain" id="src">
+# Free sample lessons
+> Three complete lessons from the paid library, so you can judge the depth and the format before you buy.
+
+## Sample lessons
+
+### [J] Angular - Lesson 1: Components, templates and data binding
+#### 1. The problem
+A page with a header, a product list and a cart badge becomes one 2,000-line HTML file. A change to the cart breaks the header. You need small, reusable pieces that each manage their own data and view.
+
+#### 2. The idea
+A **component** is a Lego brick: it owns a piece of the screen (template), its data and behaviour (class) and its look (styles). Bricks snap together into a tree. **Data binding** is the glue that keeps the screen and the data in sync.
+
+#### 3. How it works
+| Binding | Syntax | Direction |
+| --- | --- | --- |
+| Interpolation | `{{ title() }}` | class to view |
+| Property | `[disabled]="busy()"` | class to view |
+| Event | `(click)="save()"` | view to class |
+| Two-way | `[(ngModel)]="name"` or `model()` | both |
+```
+App
+ ├─ Header ── CartBadge
+ └─ ProductList ── ProductCard x N
+Angular compiles templates (AOT) into instructions that update only the bindings that changed
+```
+
+#### 4. Implementation
+```ts
+@Component({
+  selector: 'app-product-card', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `<h3>{{ product().name }}</h3><button (click)="add.emit(product())">Add</button>`,
+})
+export class ProductCardComponent {
+  product = input.required<Product>();       // data in
+  add = output<Product>();                   // events out
+}
+```
+
+#### 5. Pitfalls
+Property binding sets DOM **properties**, not HTML attributes; method calls in templates run on every check (use signals or `computed`); mutating an input object breaks OnPush.
+
+#### 6. At work
+Every screen is a tree of components; design systems are libraries of them. Aim for small presentational components that receive inputs and emit outputs.
+
+#### 7. Interview questions
+**Q: Component vs directive?** A component is a directive with a template. Attribute directives change behaviour, structural directives change the DOM.
+**Q: Interpolation vs property binding?** Interpolation converts to a string in text; property binding sets any DOM property with its real type.
+> say: "A component is class plus template plus styles; bindings connect them. I keep components small, inputs down, events up."
+
+
+### [J] C#/.NET - Lesson 1: CLR, IL, JIT and what happens on `dotnet run`
+#### 1. The problem
+You write C# on Windows and it runs on Linux containers. How? And why is the first request slower than the next ones?
+
+#### 2. The idea
+C# is not compiled straight to machine code. It is compiled to a portable language (**IL**), and a runtime (the **CLR**) turns it into machine code on the target machine, like a travel translator who works on arrival.
+
+#### 3. How it works
+```
+C# source --Roslyn--> IL + metadata (.dll)
+.dll --CLR loads--> JIT compiles each method on first call (tiered: quick first, optimized later)
+CLR also: garbage collection, type safety, exceptions, threads
+BCL: List<T>, File, HttpClient... ; Native AOT / ReadyToRun precompile to cut startup
+```
+
+#### 4. Implementation
+```
+dotnet new webapi -n Shop.Api   dotnet build   dotnet test   dotnet publish -c Release
+```
+A `.csproj` lists target framework, packages and settings (`<Nullable>enable</Nullable>`).
+
+#### 5. Pitfalls
+Confusing .NET Framework (Windows-only, legacy) with modern .NET (cross-platform); forgetting JIT warm-up in benchmarks; mixing runtime versions in containers.
+
+#### 6. At work
+Container startup times, choosing self-contained or framework-dependent publish, reading profiler output.
+
+#### 7. Interview questions
+**Q: What is IL?** A CPU-independent instruction set the JIT converts to machine code.
+**Q: What does the CLR do?** Loads assemblies, JIT compiles, manages memory, enforces type safety, handles exceptions and threads.
+> say: "C# compiles to IL, the CLR JIT-compiles it per machine and manages memory, which gives portability and explains warm-up."
+
+
+### [J] SQL - Lesson 1: How a query is executed (the order that explains most mistakes)
+#### 1. The problem
+You write `SELECT Salary * 12 AS Annual FROM Employees WHERE Annual > 1000000;` and get "invalid column Annual". Why does SQL know `Annual` in ORDER BY but not WHERE?
+
+#### 2. The idea
+You write SELECT first, but SQL **logically processes** the clauses in a different order, like a factory line: first collect the raw material (FROM), then remove bad pieces (WHERE), group them (GROUP BY), and only then label and package (SELECT, ORDER BY).
+
+#### 3. How it works
+```
+FROM / JOIN  -> build the rows
+WHERE        -> filter individual rows
+GROUP BY     -> make groups
+HAVING       -> filter groups
+SELECT       -> compute columns and aliases
+DISTINCT     -> remove duplicates
+ORDER BY     -> sort (can use aliases)
+TOP/LIMIT/OFFSET -> cut rows
+```
+
+#### 4. Worked example
+```sql
+SELECT DeptId, COUNT(*) AS People, AVG(Salary) AS AvgSalary
+FROM Employees
+WHERE HireDate >= '2020-01-01'        -- 2) only recent hires are considered
+GROUP BY DeptId                        -- 3) one group per department
+HAVING COUNT(*) >= 2                   -- 4) keep groups with 2+ people
+ORDER BY AvgSalary DESC;               -- 7) alias allowed here
+```
+Result grain: **one row per department**.
+
+#### 5. Pitfalls
+Aliases in WHERE; aggregates in WHERE (use HAVING); window functions in WHERE (wrap in a CTE); assuming a row order without ORDER BY (no guarantee).
+
+#### 6. At work
+When a report number looks wrong, walk the clauses in this order and check the row count after each step.
+
+#### 7. Interview questions
+**Q: WHERE vs HAVING?** WHERE filters rows before grouping; HAVING filters groups after aggregation.
+**Q: Why can ORDER BY use an alias?** It runs after SELECT.
+> say: "FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY, then limit. That order explains where aliases, aggregates and window functions are allowed."
+
+</script><script src="app.js"></script></body></html>
