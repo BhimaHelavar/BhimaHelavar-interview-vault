@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Free sample lessons</title><link rel="stylesheet" href="style.css"></head><body><div id="app"></div><script type="text/plain" id="src">
 # Free sample lessons
-> Three complete lessons from the paid library, so you can judge the depth and the format before you buy.
+> Seven complete lessons from the paid library, one from each major area, so you can judge the depth and the format before you buy.
 
 ## Sample lessons
 
@@ -82,6 +82,77 @@ Container startup times, choosing self-contained or framework-dependent publish,
 > say: "C# compiles to IL, the CLR JIT-compiles it per machine and manages memory, which gives portability and explains warm-up."
 
 
+### [M] Modern C# - Lesson 3: Primary constructors (C# 12)
+#### 1. The problem
+A service class needs 4 dependencies. You declare 4 fields, a constructor with 4 parameters and 4 assignments: ten lines before any real code.
+
+#### 2. The idea
+Put the constructor parameters right on the class name. They are available in the whole class body, like function arguments you can see everywhere in the class.
+
+#### 3. How it works
+```
+public class OrderService(IOrderRepo repo, ILogger<OrderService> log) { ... }
+ parameters are in scope for every member; the compiler captures them as hidden fields when used
+ for a record, parameters become public properties; for a class or struct they do NOT
+```
+
+#### 4. Implementation
+```csharp
+public class OrderService(IOrderRepo repo, ILogger<OrderService> log)
+{
+    public async Task<Order?> GetAsync(int id) { log.LogInformation("Get {Id}", id); return await repo.FindAsync(id); }
+}
+```
+
+#### 5. Pitfalls
+Parameters are mutable captured values, so reassigning one changes behaviour everywhere. They are not properties (cannot be read from outside). If you need validation or a readonly field, write a normal constructor or copy the parameter into a `readonly` field.
+
+#### 6. At work
+Controllers, services and handlers with dependency injection use this heavily in current code.
+
+#### 7. Interview question
+**Q: Do primary constructor parameters become properties?** Only for records. In classes and structs they are captured only when used.
+> say: "Primary constructors remove DI boilerplate; I keep parameters read-only by convention."
+
+
+### [M] Best practices - Lesson 4: Common pitfalls (the bugs that appear again and again)
+#### 1. The problem
+The same ten bugs show up in every project: null references, async deadlocks, closure surprises, time zone errors, floating-point money, swallowed exceptions.
+
+#### 2. The idea
+Know the failure shape of each one so you can recognise it from a description or a stack trace.
+
+#### 3. How it works
+| Pitfall | Why it happens | Fix |
+| --- | --- | --- |
+| `NullReferenceException` | value assumed non-null | nullable reference types, guards |
+| Deadlock / starvation | `.Result` or `.Wait()` on a task | async all the way |
+| Money wrong by cents | `double` cannot store 0.1 exactly | use `decimal` |
+| Wrong times | local time vs UTC, daylight saving | store UTC (`DateTimeOffset`), convert at the edge |
+| Lost errors | `async void`, empty `catch` | return `Task`, log and rethrow |
+| Shared `HttpClient` problems | new client per request or one forever | `IHttpClientFactory` |
+| Modified collection | change a list during `foreach` | iterate a copy or build a new list |
+| Closure in loops | captured variable shared | copy to a local (modern `foreach` already does) |
+
+#### 4. Implementation
+```csharp
+try { await _repo.SaveAsync(order, ct); }
+catch (DbUpdateConcurrencyException) { return Conflict(); }          // handle what you can
+catch (Exception ex) when (ex is not OperationCanceledException) { _log.LogError(ex, "Save failed {OrderId}", order.Id); throw; }
+```
+
+#### 5. Pitfalls
+`throw ex;` resets the stack trace (use `throw;`); catching everything at every layer; logging the same error at each layer.
+
+#### 6. At work
+Production incidents and code review checklists.
+
+#### 7. Interview questions
+**Q: Why not `double` for money?** It is binary floating point, so decimal fractions like 0.1 are inexact; use `decimal`.
+**Q: `throw` vs `throw ex`?** `throw` preserves the original stack trace; `throw ex` resets it.
+> say: "Most production bugs are a short known list: null, blocking async, money and time types, and swallowed errors."
+
+
 ### [J] SQL - Lesson 1: How a query is executed (the order that explains most mistakes)
 #### 1. The problem
 You write `SELECT Salary * 12 AS Annual FROM Employees WHERE Annual > 1000000;` and get "invalid column Annual". Why does SQL know `Annual` in ORDER BY but not WHERE?
@@ -122,5 +193,68 @@ When a report number looks wrong, walk the clauses in this order and check the r
 **Q: WHERE vs HAVING?** WHERE filters rows before grouping; HAVING filters groups after aggregation.
 **Q: Why can ORDER BY use an alias?** It runs after SELECT.
 > say: "FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY, then limit. That order explains where aliases, aggregates and window functions are allowed."
+
+
+### [M] System design - Lesson 12: Caching
+#### 1. The problem
+The same expensive query runs a thousand times a minute with the same answer.
+#### 2. The idea
+Keep a copy of frequently used data in fast memory. Like keeping your most-used tools on your desk instead of the warehouse.
+#### 3. How it works
+```
+Request -> cache hit? yes -> return        no -> database -> store in cache (with TTL) -> return
+Where: browser, CDN, in-process (MemoryCache), distributed (Redis)
+Invalidation: TTL, explicit eviction on update, versioned keys
+Patterns: cache-aside (app manages), write-through, write-behind
+```
+#### 4. Example
+.NET 9+: `HybridCache` (local + Redis) with stampede protection via `GetOrCreateAsync`.
+#### 5. Pitfalls
+Stale data, cache stampede when a hot key expires, caching per-user data under a shared key (data leak), unbounded memory.
+#### 6. At work
+Reference data, expensive reports, rate-limit counters.
+#### 7. Interview question
+**Q: Hardest part of caching?** Invalidation: knowing when the cached copy is wrong.
+> say: "Cache-aside with TTLs, explicit invalidation on writes, and stampede protection."
+
+
+### [J] DSA patterns - Lesson 3: Sliding window
+#### 1. The problem
+Find the longest substring without repeating characters, or the best contiguous subarray of size k.
+#### 2. The idea
+Keep a **window** over the data. Expand the right edge to add an element; shrink the left edge when the window breaks a rule. Like a moving camera frame.
+#### 3. How it works
+```
+"abcabcbb"   window grows: a, ab, abc, then 'a' repeats -> move left past the old 'a'
+Each index enters and leaves the window once -> O(n)
+Fixed window: slide by one (add right, remove left).  Variable window: expand until invalid, shrink until valid
+```
+#### 4. Implementation
+```csharp
+public int LongestUnique(string s)
+{
+    var last = new Dictionary<char, int>(); int best = 0, left = 0;
+    for (int right = 0; right < s.Length; right++)
+    {
+        if (last.TryGetValue(s[right], out var prev) && prev >= left) left = prev + 1;
+        last[s[right]] = right;
+        best = Math.Max(best, right - left + 1);
+    }
+    return best;
+}
+public int MaxSumOfK(int[] a, int k)
+{
+    int sum = 0; for (int i = 0; i < k; i++) sum += a[i];
+    int best = sum; for (int i = k; i < a.Length; i++) { sum += a[i] - a[i - k]; best = Math.Max(best, sum); }
+    return best;
+}
+```
+#### 5. Pitfalls
+Not shrinking enough, off-by-one on window length (`right - left + 1`), negative numbers break the simple "shrink while sum too big" logic.
+#### 6. At work
+Rate limiting over a time window, moving averages, log analysis.
+#### 7. Interview question
+**Q: Sliding window vs two pointers?** Sliding window keeps a contiguous range and tracks a property of it; two pointers is the broader idea of two moving indices.
+> say: "Grow the window on the right, shrink on the left, and track the rule inside."
 
 </script><script src="app.js"></script></body></html>

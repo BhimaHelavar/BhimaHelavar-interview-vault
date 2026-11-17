@@ -1,31 +1,106 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Interview Vault</title><meta name="description" content="Lesson-style study notes for senior .NET and Angular interviews: runtime, Web API, EF Core, SQL, Angular, RxJS, testing, system design and Azure."><link rel="stylesheet" href="landing.css"></head><body>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Interview Vault</title><meta name="description" content="Lesson-style study notes for senior .NET and Angular interviews: modern C#, Web API, EF Core, SQL, Angular signals and RxJS, system design, DSA patterns, Azure."><link rel="stylesheet" href="landing.css"><noscript><style>.rv,.tl li{opacity:1!important;transform:none!important}.tl::after{height:calc(100% - 12px)}.marq div{animation:none}</style></noscript></head><body>
 <header class="t"><div class="w"><b data-s="name"></b><a href="sample.html">Free sample</a><a href="#inside">What's inside</a><a href="#buy">Pricing</a><a href="library.html">Library (members)</a></div></header>
-<div class="w">
-<section class="hero"><h1>Stop memorising answers. Understand .NET and Angular well enough to explain them.</h1><p>Every topic is taught as a short lesson: the problem, the idea, how it works, code, the traps, where it shows up at work, and the interview questions with answers. Built for developers aiming at senior full-stack roles.</p><p><a class="btn" href="#buy">Get the full library</a> &nbsp; <a class="btn o" href="sample.html">Read 3 free lessons</a></p></section>
-<div class="stats"><div><b data-s="lessons"></b>lessons</div><div><b data-s="qa"></b>quick-revision Q&amp;A</div><div><b data-s="designPages"></b>system design pages</div><div><b data-s="azurePages"></b>Azure pages</div></div>
-<h2 id="inside">What is inside</h2>
-<div class="grid">
-<div class="c"><b>C# and .NET runtime</b><span>CLR and JIT, memory and GC, async/await, threading, LINQ, records, .NET 10 and C# 14.</span></div>
-<div class="c"><b>ASP.NET Core Web API</b><span>Request pipeline, REST, validation, versioning, idempotency, security, scenario design.</span></div>
-<div class="c"><b>Enterprise .NET daily lessons</b><span>JWT auth, caching, pagination, EF Core, outbox and background jobs, logging, CQRS, resilient HTTP, multi-tenancy, CI/CD.</span></div>
-<div class="c"><b>Angular, current</b><span>Signals, zoneless change detection, RxJS, routing, forms, security, SSR, lazy loading and @defer.</span></div>
-<div class="c"><b>Enterprise Angular + testing</b><span>HTTP layer, grids, state, micro frontends, performance; TestBed, mocks, signals, Playwright.</span></div>
-<div class="c"><b>SQL and databases</b><span>Joins, NULL logic, window functions, indexes and plans, transactions, concurrency, migrations, scaling.</span></div>
-<div class="c"><b>System design with a real app</b><span>Requirements, HLD, LLD, database design, API design, NFRs, security, patterns, interview kit.</span></div>
-<div class="c"><b>Azure for .NET developers</b><span>App Service, SQL, secrets, CI/CD, Bicep, monitoring, cost, runbook, interview Q&amp;A.</span></div>
-<div class="c"><b>Claude Code for developers</b><span>Concepts, daily workflows and interview questions on AI-assisted coding.</span></div>
+
+<section class="hero"><div class="blobs" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="w heroGrid">
+<div>
+<span class="eyebrow">.NET + Angular interview prep</span>
+<h1>Stop memorising answers. <span class="grad">Understand .NET and Angular</span> well enough to explain them.</h1>
+<p class="lead">Every topic is a short lesson: the problem, the idea, how it works, code, the traps, where it shows up at work, and the interview questions with answers. Built for developers aiming at senior full-stack roles.</p>
+<div class="cta"><a class="btn" href="#buy">Get the full library</a><a class="btn o" href="sample.html">Read free lessons</a></div>
+<div class="trust"><span>Read in the browser</span><span>Works on phone and laptop</span><span>Search and level filters</span></div>
 </div>
-<h2>How every lesson is written</h2>
-<div class="grid"><div class="c"><b>1. The problem</b><span>A small story that shows why the topic exists.</span></div><div class="c"><b>2. The idea</b><span>A plain analogy before any jargon.</span></div><div class="c"><b>3. How it works</b><span>Step by step, with a diagram.</span></div><div class="c"><b>4. Implementation</b><span>Short, realistic code.</span></div><div class="c"><b>5. Pitfalls</b><span>What goes wrong in production.</span></div><div class="c"><b>6. At work</b><span>Where you will meet it in enterprise apps.</span></div><div class="c"><b>7. Interview questions</b><span>Answers plus a one-line "say this" summary.</span></div></div>
-<p class="note">Every question is tagged Junior, Mid or Senior, has a search box, and a checkbox to track what you can already explain aloud (progress stays in your browser).</p>
-<h2 id="buy">Get access</h2>
-<div class="price"><div class="p" data-s="price"></div><p>One-time payment. Online access to the whole library, including future updates to these notes.</p><div class="pay" id="pay"></div><p class="note">After payment you receive your access key on the confirmation screen and by email. Paid securely by Razorpay (UPI, cards, netbanking). <span data-s="days"></span>-day refund window: see the <a href="refund.html">refund policy</a>.</p></div>
-<h2>Questions</h2>
+<div class="codecard" aria-label="Example of lesson code"><div class="bar"><i></i><i></i><i></i><span id="lang">C#</span></div><pre><code id="typed"></code><span class="caret"></span></pre></div>
+</div>
+<div class="w"><div class="stats" id="stats">
+<div><b data-s="lessons" data-count></b><span>lessons</span></div>
+<div><b data-s="qa" data-count></b><span>quick-revision Q&amp;A</span></div>
+<div><b data-s="designPages" data-count></b><span>system design pages</span></div>
+<div><b data-s="azurePages" data-count></b><span>Azure pages</span></div>
+</div><p class="note" style="text-align:center;margin-top:12px"><span data-s="total"></span> learning items in total, plus 15 DSA patterns in C# and 30 system design concepts.</p></div>
+</section>
+
+<div class="marq" aria-hidden="true"><div id="marq"></div></div>
+
+<div class="w">
+<h2 id="inside" class="rv">What is inside</h2>
+<p class="sub rv">Nine areas that cover what a senior .NET and Angular interview actually asks.</p>
+
+<div class="grp rv">.NET and C#</div>
+<div class="grid">
+<div class="c rv"><b>C# and .NET runtime</b><span>CLR and JIT, value vs reference types, GC, async/await, threading, LINQ, records, .NET 10.</span><em>10 lessons</em></div>
+<div class="c rv"><b>Modern C# (C# 9 to 14)</b><span>Records, init and required, primary constructors, collection expressions, raw strings, Lock, the field keyword.</span><em>12 lessons</em></div>
+<div class="c rv"><b>C# best practices</b><span>Coding standards, clean code, common pitfalls, performance, logging, testing, analyzers, debugging.</span><em>9 lessons</em></div>
+<div class="c rv"><b>ASP.NET Core Web API</b><span>Request pipeline, REST, validation, versioning, file streaming, idempotency, security.</span><em>10 lessons</em></div>
+<div class="c rv"><b>Enterprise .NET daily lessons</b><span>JWT auth, caching, pagination, EF Core, outbox and background jobs, CQRS, resilient HTTP, multi-tenancy, CI/CD.</span><em>11 lessons</em></div>
+</div>
+
+<div class="grp rv">Angular</div>
+<div class="grid">
+<div class="c rv"><b>Angular, current</b><span>Signals, zoneless change detection, RxJS, routing, forms, security, SSR, lazy loading and @defer.</span><em>12 lessons</em></div>
+<div class="c rv"><b>Enterprise Angular</b><span>HTTP layer, server-side grids, state, micro frontends, real-time, accessibility, performance.</span><em>9 lessons</em></div>
+<div class="c rv"><b>Angular testing</b><span>TestBed, mocks, HttpTestingController, async, signals, forms, harnesses, Playwright.</span><em>10 lessons</em></div>
+</div>
+
+<div class="grp rv">Data</div>
+<div class="grid">
+<div class="c rv"><b>SQL, step by step</b><span>Query execution order, joins, NULL logic, window functions, indexes and plans, transactions.</span><em>10 lessons</em></div>
+<div class="c rv"><b>Database concepts</b><span>Transactions, concurrency, indexing, schema design, safe migrations, reporting, scaling.</span><em>7 lessons + Q&amp;A</em></div>
+</div>
+
+<div class="grp rv">Architecture and cloud</div>
+<div class="grid">
+<div class="c rv"><b>System design concepts</b><span>DNS and HTTP to caching, CAP, queues, rate limiting, gateways and idempotency.</span><em>20 lessons, 30 concepts</em></div>
+<div class="c rv"><b>System design with a real app</b><span>Requirements, HLD, LLD, database and API design, NFRs, security and an interview kit.</span><em>14 pages</em></div>
+<div class="c rv"><b>Azure for .NET developers</b><span>App Service, SQL, secrets, CI/CD, Bicep, monitoring, cost, runbook and interview Q&amp;A.</span><em>15 pages</em></div>
+</div>
+
+<div class="grp rv">Interview skills</div>
+<div class="grid">
+<div class="c rv"><b>DSA patterns in C#</b><span>Two pointers, sliding window, heaps, intervals, BFS and DFS, backtracking, dynamic programming.</span><em>15 patterns</em></div>
+<div class="c rv"><b>Claude Code for developers</b><span>Concepts, daily workflows and interview questions on AI-assisted coding.</span><em>Q&amp;A pages</em></div>
+</div>
+
+<h2 class="rv">How every lesson is written</h2>
+<p class="sub rv">The same seven steps every time, so you always know where to look.</p>
+<ol class="tl" id="tl">
+<li data-n="1"><b>The problem</b><span>A small story that shows why the topic exists.</span></li>
+<li data-n="2"><b>The idea</b><span>A plain analogy before any jargon.</span></li>
+<li data-n="3"><b>How it works</b><span>Step by step, with a diagram.</span></li>
+<li data-n="4"><b>Implementation</b><span>Short, realistic code.</span></li>
+<li data-n="5"><b>Pitfalls</b><span>What goes wrong in production.</span></li>
+<li data-n="6"><b>At work</b><span>Where you will meet it in enterprise apps.</span></li>
+<li data-n="7"><b>Interview questions</b><span>Answers plus a one-line "say this" summary.</span></li>
+</ol>
+<p class="note rv">Every question is tagged Junior, Mid or Senior, has a search box, and a checkbox to track what you can already explain aloud (progress stays in your browser).</p>
+
+<h2 class="rv">Free sample vs full library</h2>
+<div class="tw rv"><table class="cmp"><thead><tr><th></th><th>Free</th><th>Full</th></tr></thead><tbody>
+<tr><td>Sample lessons (Angular, C#, SQL and more)</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+<tr><td>Lesson courses (.NET, Angular, SQL, testing)</td><td class="no">-</td><td class="yes">Yes</td></tr>
+<tr><td>Modern C# and best practices</td><td class="no">-</td><td class="yes">Yes</td></tr>
+<tr><td>System design concepts and the real-app study</td><td class="no">-</td><td class="yes">Yes</td></tr>
+<tr><td>Azure study</td><td class="no">-</td><td class="yes">Yes</td></tr>
+<tr><td>15 DSA patterns in C#</td><td class="no">-</td><td class="yes">Yes</td></tr>
+<tr><td>Quick-revision Q&amp;A pages</td><td class="no">-</td><td class="yes">Yes</td></tr>
+<tr><td>Search, level filters, progress tracking</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+<tr><td>Updates to these notes</td><td class="no">-</td><td class="yes">Yes</td></tr>
+</tbody></table></div>
+
+<h2 id="buy" class="rv">Get access</h2>
+<div class="price rv"><div class="p" data-s="price"></div><p>One-time payment. Online access to the whole library, including future updates to these notes.</p>
+<ul><li>All lesson courses and Q&amp;A pages</li><li>System design, Azure and DSA patterns</li><li>Read on any device with a browser</li></ul>
+<div class="pay" id="pay"></div><p class="note">After payment you receive your access key on the confirmation screen and by email. Paid securely by Razorpay (UPI, cards, netbanking). <span data-s="days"></span>-day refund window: see the <a href="refund.html">refund policy</a>.</p></div>
+
+<h2 class="rv">Questions</h2>
 <details><summary>Who is this for?</summary><p>Developers with 2 to 10 years of experience preparing for .NET and Angular roles, and graduates aiming at roles that expect about five years of knowledge.</p></details>
 <details><summary>How do I get in?</summary><p>Open <a href="unlock.html">the unlock page</a>, enter your key once, and the library opens on that device. The key is stored in your browser. Use the same key on another device.</p></details>
 <details><summary>Is it a PDF?</summary><p>No. It is a website you read in the browser, on phone or laptop, with search, level filters and progress tracking.</p></details>
 <details><summary>Does it guarantee a job?</summary><p>No. It teaches the concepts and the way to explain them. Interviews also depend on your practice and experience.</p></details>
 <details><summary>Can I share my key?</summary><p>The key is for you only. Shared keys can be disabled.</p></details>
+<details><summary>Who do I contact for help?</summary><p>Write to <a data-mail href="contact.html"><span data-s="email"></span></a> with your payment id.</p></details>
 </div>
+
 <footer><div class="w"><a href="terms.html">Terms</a><a href="privacy.html">Privacy</a><a href="refund.html">Refunds</a><a href="shipping.html">Shipping</a><a href="contact.html">Contact</a><p>&copy; <span data-s="name"></span></p></div></footer>
+<div class="sticky" id="sticky"><b data-s="price"></b><a class="btn" href="#buy">Get full access</a></div>
 <script src="config.js"></script><script src="stats.js"></script><script src="landing.js"></script></body></html>
