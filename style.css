@@ -137,3 +137,10 @@ body.fx .body{padding:6px 14px 18px;border-top:1px solid var(--line)}
 
 .wrap p>b>a{display:inline-block;padding:12px 26px;border-radius:99px;background:var(--blue);color:#fff;font-weight:700;text-decoration:none;box-shadow:0 6px 18px rgba(47,107,255,.35);transition:transform .15s}
 .wrap p>b>a:hover{transform:translateY(-2px)}
+
+.hcta{display:inline-block;margin-top:14px;padding:10px 22px;border-radius:99px;background:#fff;color:#2f4fd6;font-weight:800;text-decoration:none;box-shadow:0 6px 20px rgba(0,0,0,.25);animation:hctaPulse 2.2s ease-in-out infinite}
+.hcta:hover{transform:translateY(-2px)}.hcta span{display:inline-block;transition:transform .2s}.hcta:hover span{transform:translateX(4px)}
+.bar a.navcta{background:#16a34a;color:#fff;font-weight:700;border-color:#16a34a;white-space:nowrap}
+.bar a.navcta:hover{filter:brightness(1.08)}
+@keyframes hctaPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@media(prefers-reduced-motion:reduce){.hcta{animation:none}}

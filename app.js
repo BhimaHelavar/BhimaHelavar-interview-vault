@@ -126,6 +126,9 @@ function parse(src){const out={title:'',intro:'',secs:[]};let cur=null,q=null;
    body.querySelectorAll('pre').forEach(p=>{const b=document.createElement('button');b.className='cp';b.type='button';b.textContent='Copy';b.onclick=()=>{const tx=p.querySelector('code').textContent;const ok=()=>{b.textContent='Copied!';setTimeout(()=>b.textContent='Copy',1400)};try{navigator.clipboard.writeText(tx).then(ok,()=>{})}catch(e){}};p.appendChild(b)});
    if(i===0){dt.open=true;const q=dt.querySelector('.part.p7');if(q&&q.tg)q.tg()}
   });
+  // Get full access links in the header and the nav bar
+  if(top){top.insertAdjacentHTML('beforeend','<a class="hcta" href="index.html#buy">Get full access <span>→</span></a>')}
+  const bar=document.querySelector('.bar');if(bar){bar.insertAdjacentHTML('afterbegin','<a class="navcta" href="index.html#buy">Get full access</a>')}
   // sticky mini nav, replaces default toc and level filter
   const wrap=document.querySelector('.wrap');const tools=wrap.querySelector('.tools');wrap.insertBefore(mini,tools);
   mini.querySelectorAll('a').forEach(a=>a.addEventListener('click',e=>{const t=document.getElementById('L'+a.dataset.i);if(t){t.open=true}}));
