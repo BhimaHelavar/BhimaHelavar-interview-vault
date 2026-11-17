@@ -4,7 +4,8 @@ window.SHOP = {
   tagline: "Lesson-style study notes for senior .NET and Angular interviews",
   price: 149,                 // INR, shown on the page. Must match your Razorpay payment page/button
   offerLabel: "Launch price", // small label above the price; set "" to hide
-  regularPrice: 0,            // optional: show a crossed-out price ONLY if you will really charge it later, e.g. 999
+  regularPrice: 999,          // crossed-out price. Only keep this if you will REALLY charge it after the offer ends
+  offerEndsAt: "2026-11-20T23:59:59+05:30", // launch offer deadline (fixed). After it, the page shows the regular price and hides the Pay button until you update Razorpay to the regular amount. Set "" for no countdown
   reviews: [],                // REAL reviews only, e.g. { name: "Name", role: "SDE-2", company: "Company", text: "What they actually said" }
   currency: "INR",
   // Razorpay (no server needed). Use ONE of these:

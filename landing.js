@@ -3,16 +3,29 @@ const S=window.SHOP||{},T=window.STATS||{},B=S.business||{};
 const $=id=>document.getElementById(id);
 const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const num=v=>Number(v)||0;
-const price=S.price!=null?'₹'+num(S.price).toLocaleString('en-IN'):'';
+const endAt=S.offerEndsAt?Date.parse(S.offerEndsAt):0;
+const live=!endAt||Date.now()<endAt;
+const shown=live?S.price:(num(S.regularPrice)||S.price);
+const price=shown!=null?'₹'+num(shown).toLocaleString('en-IN'):'';
 const total=num(T.lessons)+num(T.qa)+num(T.designPages)+num(T.azurePages);
 const vals={name:S.name,price:price,days:S.refundDays,email:B.email,total:total||''};
 document.title=S.name||document.title;
 document.querySelectorAll('[data-s]').forEach(n=>{const k=n.dataset.s;const v=vals[k]!==undefined?vals[k]:T[k];n.textContent=v!==undefined&&v!==null?v:''});
 document.querySelectorAll('[data-mail]').forEach(a=>{if(B.email)a.href='mailto:'+B.email});
 
-/* offer label and optional crossed-out regular price */
+/* launch offer: crossed-out regular price, discount badge and a real countdown to a fixed deadline */
 const off=$('offer');
-if(off){const old=num(S.regularPrice);let t='';if(S.offerLabel)t+='<span class="tag">'+S.offerLabel+'</span>';if(old>num(S.price))t+=' <s>\u20B9'+old.toLocaleString('en-IN')+'</s>';off.innerHTML=t}
+if(off){
+  const old=num(S.regularPrice),cur=num(S.price);
+  if(live&&old>cur){
+    const pct=Math.round((old-cur)/old*100);
+    let h='<div class="deal"><span class="tag">'+(S.offerLabel||'Launch offer')+'</span> <s>\u20B9'+old.toLocaleString('en-IN')+'</s> <span class="save">Save '+pct+'%</span></div>';
+    if(endAt)h+='<div class="cd" id="cd" aria-live="off"><p class="cdt">Offer ends in</p><div class="cdg"><div><b id="cdd">0</b><span>days</span></div><div><b id="cdh">00</b><span>hrs</span></div><div><b id="cdm">00</b><span>min</span></div><div><b id="cds">00</b><span>sec</span></div></div></div>';
+    off.innerHTML=h;
+    if(endAt){const p=n=>String(n).padStart(2,'0');const tick=()=>{let s=Math.max(0,Math.floor((endAt-Date.now())/1000));if(s<=0){location.reload();return}const d=Math.floor(s/86400);s-=d*86400;const hh=Math.floor(s/3600);s-=hh*3600;const m=Math.floor(s/60);s-=m*60;$('cdd').textContent=d;$('cdh').textContent=p(hh);$('cdm').textContent=p(m);$('cds').textContent=p(s)};tick();setInterval(tick,1000)}
+  }else if(!live){off.innerHTML='<div class="deal"><span class="tag off">Launch offer ended</span></div>'}
+  else if(S.offerLabel){off.innerHTML='<span class="tag">'+S.offerLabel+'</span>'}
+}
 /* real reviews (shown only when config.reviews has entries) */
 const rv=$('reviews'),R=(S.reviews||[]).filter(r=>r&&r.name&&r.text);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -22,6 +35,7 @@ if(rv&&R.length){rv.innerHTML='<h2 class="rv in">What readers say</h2><div class
 const pay=$('pay');
 if(pay){
   if(S.razorpayButtonId){const f=document.createElement('form');const s=document.createElement('script');s.src='https://checkout.razorpay.com/v1/payment-button.js';s.async=true;s.dataset.payment_button_id=S.razorpayButtonId;f.appendChild(s);pay.appendChild(f)}
+  else if(!live){pay.innerHTML='<span class="note">The launch offer has ended. Write to '+(B.email||'us')+' to get access.</span>'}
   else if(S.paymentLink){pay.innerHTML='<a class="btn" href="'+S.paymentLink+'" rel="noopener">Pay '+price+' securely with Razorpay</a>'}
   else pay.innerHTML='<span class="note">Payments are being set up. Please check back soon, or write to '+(B.email||'us')+'.</span>';
 }

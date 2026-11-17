@@ -77,4 +77,61 @@ function parse(src){const out={title:'',intro:'',secs:[]};let cur=null,q=null;
  document.getElementById('co').onclick=()=>document.querySelectorAll('details.q').forEach(x=>x.open=false);
  document.querySelectorAll('#lvl button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#lvl button').forEach(x=>x.classList.toggle('on',x===b));const l=b.dataset.l;document.querySelectorAll('details.q').forEach(x=>{x.style.display=(!l||x.dataset.lv===l)?'':'none'})});
  document.getElementById('f').oninput=e=>{const v=e.target.value.toLowerCase();document.querySelectorAll('details.q').forEach(x=>{const m=!v||x.textContent.toLowerCase().includes(v);x.style.display=m?'':'none';if(v&&m)x.open=true})};
+ function fx(d){
+  document.body.classList.add('fx');
+  const RM=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ICON={1:'🔥',2:'💡',3:'⚙️',4:'💻',5:'⚠️',6:'🏢',7:'🎤'};
+  const AREA=[['Angular','🅰️'],['C#/.NET','🔷'],['Modern C#','✨'],['Best practices','✅'],['SQL','🗄️'],['System design','🏗️'],['DSA','🧩']];
+  const areaOf=t=>{for(const a of AREA)if(t.indexOf(a[0])===0)return a;return['Lesson','📘']};
+  const total=()=>(window.STATS&&window.STATS.lessons)||135;
+  // progress bar
+  const pb=document.createElement('div');pb.className='rd';document.body.appendChild(pb);
+  const onScroll=()=>{const h=document.documentElement;const m=h.scrollHeight-h.clientHeight;pb.style.transform='scaleX('+(m>0?Math.min(1,h.scrollTop/m):0)+')';fab.classList.toggle('show',h.scrollTop>600)};
+  // hero extras
+  const top=document.querySelector('.top');if(top){top.insertAdjacentHTML('beforeend','<div class="chips"><span>7 full lessons</span><span>Story + analogy + code</span><span>Interview one-liners</span></div><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i>')}
+  // lessons
+  const lessons=[...document.querySelectorAll('details.q')];
+  const mini=document.createElement('nav');mini.className='mini';
+  lessons.forEach((dt,i)=>{
+   const t=dt.querySelector('.qt').textContent,a=areaOf(t);dt.id='L'+(i+1);dt.classList.add('rv','lesson','c'+(i%7));
+   dt.querySelector('summary').insertAdjacentHTML('afterbegin','<span class="ico">'+a[1]+'</span>');
+   mini.insertAdjacentHTML('beforeend','<a href="#L'+(i+1)+'" data-i="'+(i+1)+'"><span>'+a[1]+'</span> '+esc(a[0])+'</a>');
+   const body=dt.querySelector('.body'),out=document.createElement('div');out.className='parts';let cur=null;
+   [...body.childNodes].forEach(k=>{
+    if(k.nodeType===1&&k.tagName==='H4'){const mm=k.textContent.match(/^(\d)\./);const no=mm?+mm[1]:0;
+     cur=document.createElement('section');cur.className='part rv p'+no;
+     const ttl=k.textContent.replace(/^\d+\.\s*/,'');
+     cur.innerHTML='<div class="ph"><span class="pi">'+(ICON[no]||'•')+'</span><h4><small>Part '+no+'</small>'+esc(ttl)+'</h4>'+(no===7?'<button class="ft" type="button" aria-expanded="false">Show</button>':'')+'</div><div class="pb"></div>';
+     if(no===7){const f=document.createElement('div');f.className='fold';f.appendChild(cur.querySelector('.pb'));cur.appendChild(f);
+      const b=cur.querySelector('.ft'),ph=cur.querySelector('.ph');const tg=()=>{const o=f.classList.toggle('open');b.textContent=o?'Hide':'Show';b.setAttribute('aria-expanded',o)};ph.addEventListener('click',tg);cur.tg=tg;cur.fold=f;cur.btn=b;cur.pbx=f.firstChild;cur.dataset.fold='1';}
+     out.appendChild(cur)}
+    else if(cur)(cur.pbx||cur.querySelector('.pb')).appendChild(k);else out.appendChild(k)});
+   body.innerHTML='';body.appendChild(out);
+   body.querySelectorAll('.co.say').forEach(c=>c.insertAdjacentHTML('afterbegin','<span class="sl">🎙️ Say it like this</span>'));
+   body.querySelectorAll('pre').forEach(p=>{const b=document.createElement('button');b.className='cp';b.type='button';b.textContent='Copy';b.onclick=()=>{const tx=p.querySelector('code').textContent;const ok=()=>{b.textContent='Copied!';setTimeout(()=>b.textContent='Copy',1400)};try{navigator.clipboard.writeText(tx).then(ok,()=>{})}catch(e){}};p.appendChild(b)});
+   if(i===0){dt.open=true;const q=dt.querySelector('.part.p7');if(q&&q.tg)q.tg()}
+  });
+  // sticky mini nav, replaces default toc and level filter
+  const wrap=document.querySelector('.wrap');const tools=wrap.querySelector('.tools');wrap.insertBefore(mini,tools);
+  mini.querySelectorAll('a').forEach(a=>a.addEventListener('click',e=>{const t=document.getElementById('L'+a.dataset.i);if(t){t.open=true}}));
+  // CTA after lessons
+  const cta=document.createElement('section');cta.className='cta rv';
+  cta.innerHTML='<h2>Liked these 7? There are <span class="cn">'+total()+'</span> more.</h2><p>Angular, C# and .NET, Web API, SQL, system design, DSA patterns and Azure, all in the same story, analogy, code and one-liner format.</p><div class="pr"></div><a class="go" href="index.html#buy">Unlock all lessons <span>→</span></a>';
+  wrap.appendChild(cta);
+  const fab=document.createElement('a');fab.className='fab';fab.href='index.html#buy';fab.innerHTML='🔓 Unlock all lessons';document.body.appendChild(fab);
+  const sc=document.createElement('script');sc.src='stats.js';sc.onload=()=>{const n=cta.querySelector('.cn');if(n&&window.STATS)n.textContent=window.STATS.lessons};document.head.appendChild(sc);
+  // price follows shop/config.js (launch offer with real deadline)
+  const cf=document.createElement('script');cf.src='config.js';cf.onload=()=>{const S=window.SHOP||{},end=S.offerEndsAt?Date.parse(S.offerEndsAt):0,live=!end||Date.now()<end,f=v=>'₹'+Number(v).toLocaleString('en-IN'),pr=cta.querySelector('.pr');
+    if(live&&S.regularPrice>S.price){pr.innerHTML='<s>'+f(S.regularPrice)+'</s><b>'+f(S.price)+'</b><em>'+(S.offerLabel||'Launch offer')+'</em>';fab.innerHTML='🔓 Unlock all lessons · <b>'+f(S.price)+'</b>'}
+    else{const p=live?S.price:(S.regularPrice||S.price);pr.innerHTML='<b>'+f(p)+'</b>';fab.innerHTML='🔓 Unlock all lessons · <b>'+f(p)+'</b>'}};document.head.appendChild(cf);
+  // reveal on scroll
+  const all=[...document.querySelectorAll('.rv')];
+  if('IntersectionObserver' in window&&!RM){const io=new IntersectionObserver((es,o)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');o.unobserve(e.target)}})},{threshold:.08});all.forEach((e,i)=>{e.style.transitionDelay=(e.classList.contains('part')?(i%4)*60:0)+'ms';io.observe(e)});
+   const so=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){mini.querySelectorAll('a').forEach(a=>a.classList.toggle('on','#'+e.target.id===a.getAttribute('href')))}})},{rootMargin:'-30% 0px -60% 0px'});lessons.forEach(l=>so.observe(l))}
+  else all.forEach(e=>e.classList.add('in'));
+  // opening a lesson reveals its parts
+  lessons.forEach(l=>l.addEventListener('toggle',()=>{if(l.open)l.querySelectorAll('.rv').forEach(e=>{if(RM||!('IntersectionObserver' in window))e.classList.add('in')})}));
+  window.addEventListener('scroll',onScroll,{passive:true});onScroll();
+ }
+ if(here==='sample.html')fx(d);
 })();
