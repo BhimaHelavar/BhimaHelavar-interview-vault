@@ -2,8 +2,8 @@
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 // theme
-const t=ls.get('lms-theme');if(t)document.documentElement.dataset.theme=t;
-const tb=$('#themeBtn');if(tb)tb.onclick=()=>{const d=document.documentElement;const n=(d.dataset.theme==='dark')?'light':'dark';d.dataset.theme=n;ls.set('lms-theme',n)};
+const t=ls.get('vtheme');if(t)document.documentElement.dataset.theme=t;
+const tb=$('#themeBtn');if(tb)tb.onclick=()=>{const d=document.documentElement;const n=((d.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'))==='dark')?'light':'dark';d.dataset.theme=n;ls.set('vtheme',n)};
 const mb=$('#menuBtn');if(mb)mb.onclick=()=>$('nav.side').classList.toggle('open');
 // copy buttons
 $$('pre').forEach(p=>{const b=document.createElement('button');b.className='cp';b.textContent='Copy';b.onclick=()=>{const txt=p.querySelector('code').innerText;(navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>{b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1200)}).catch(()=>{const r=document.createRange();r.selectNodeContents(p.querySelector('code'));const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selected'})};p.appendChild(b)});
