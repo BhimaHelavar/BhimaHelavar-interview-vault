@@ -543,17 +543,4 @@ Most companies do not hand-roll this. They use an identity provider (Microsoft E
 **Q: What are the common JWT vulnerabilities?** A weak or leaked key; accepting the `none` algorithm or confusing algorithms (so pin `ValidAlgorithms`); skipping issuer, audience or lifetime validation; long-lived tokens; tokens in `localStorage` exposed to XSS; and tokens written to logs or URLs. Each has a direct fix: strong key in a vault, strict validation parameters, short lifetimes, cookies for refresh, and redaction in logs.
 > say: "Weak keys, loose validation, long lifetimes and storing tokens where scripts can read them."
 
-
-## Questions 3 to 9 are in the full set
-
-- **Question 3:** Global exception handling middleware
-- **Question 4:** Custom middleware (timing, correlation id, API key)
-- **Question 5:** Logging with ILogger (structured logs, scopes, Serilog)
-- **Question 6:** The repository pattern (and the honest debate about EF Core)
-- **Question 7:** Pagination API using Skip/Take
-- **Question 8:** API versioning
-- **Question 9:** In-memory caching and Redis
-
-> say: Each of these has full code, pitfalls and interview answers like the two above. [Get the full set](index.html#buy) for the launch price, or open the [free sample lessons](sample.html).
-
 </script><script src="app.js"></script></body></html>

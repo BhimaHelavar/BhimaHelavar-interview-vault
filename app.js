@@ -28,7 +28,7 @@ const PAGES=[
 ["claude-code-daily.html","Claude Code daily use","Workflows, prompts, review, team habits","Quick revision Q&A"]
 ];
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const inl=s=>esc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+const inl=s=>esc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\[([^\]]+)\]\(([A-Za-z0-9._\/#-]+)\)/g,'<a href="$2">$1</a>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
 function blocks(lines){let h='',i=0;
  while(i<lines.length){const l=lines[i];
   if(/^```/.test(l)){let c=[];i++;while(i<lines.length&&!/^```/.test(lines[i])){c.push(lines[i]);i++}i++;h+='<pre><code>'+esc(c.join('\n'))+'</code></pre>';continue}
@@ -103,7 +103,7 @@ function parse(src){const out={title:'',intro:'',secs:[]};let cur=null,q=null;
   const pb=document.createElement('div');pb.className='rd';document.body.appendChild(pb);
   const onScroll=()=>{const h=document.documentElement;const m=h.scrollHeight-h.clientHeight;pb.style.transform='scaleX('+(m>0?Math.min(1,h.scrollTop/m):0)+')';fab.classList.toggle('show',h.scrollTop>600)};
   // hero extras
-  const top=document.querySelector('.top');if(top){top.insertAdjacentHTML('beforeend','<div class="chips"><span>7 full lessons</span><span>Story + analogy + code</span><span>Interview one-liners</span></div><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i>')}
+  const top=document.querySelector('.top');if(top){top.insertAdjacentHTML('beforeend','<div class="chips"><span>'+(here==='week.html'?'2 free questions':'7 full lessons')+'</span><span>Story + analogy + code</span><span>Interview one-liners</span></div><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i>')}
   // lessons
   const lessons=[...document.querySelectorAll('details.q')];
   const mini=document.createElement('nav');mini.className='mini';
@@ -131,14 +131,14 @@ function parse(src){const out={title:'',intro:'',secs:[]};let cur=null,q=null;
   mini.querySelectorAll('a').forEach(a=>a.addEventListener('click',e=>{const t=document.getElementById('L'+a.dataset.i);if(t){t.open=true}}));
   // CTA after lessons
   const cta=document.createElement('section');cta.className='cta rv';
-  cta.innerHTML='<h2>Liked these 7? There are <span class="cn">'+total()+'</span> more.</h2><p>Angular, C# and .NET, Web API, SQL, system design, DSA patterns and Azure, all in the same story, analogy, code and one-liner format.</p><div class="pr"></div><a class="go" href="index.html#buy">Unlock all lessons <span>→</span></a>';
+  const wk=here==='week.html';cta.innerHTML=(wk?'<h2>Want the other 7 questions this week?</h2><p>Global exception handling, custom middleware, ILogger, repository pattern, pagination, API versioning, caching and Redis, each with full code, pitfalls and interview answers. Plus all <span class="cn">'+total()+'</span> lessons in the library.</p>':'<h2>Liked these 7? There are <span class="cn">'+total()+'</span> more.</h2><p>Angular, C# and .NET, Web API, SQL, system design, DSA patterns and Azure, all in the same story, analogy, code and one-liner format.</p>')+'<div class="pr"></div><a class="go" href="index.html#buy">Get full access <span>→</span></a>';
   wrap.appendChild(cta);
-  const fab=document.createElement('a');fab.className='fab';fab.href='index.html#buy';fab.innerHTML='🔓 Unlock all lessons';document.body.appendChild(fab);
+  const fab=document.createElement('a');fab.className='fab';fab.href='index.html#buy';fab.innerHTML='🔓 Get full access';document.body.appendChild(fab);
   const sc=document.createElement('script');sc.src='stats.js';sc.onload=()=>{const n=cta.querySelector('.cn');if(n&&window.STATS)n.textContent=window.STATS.lessons};document.head.appendChild(sc);
   // price follows shop/config.js (launch offer with real deadline)
   const cf=document.createElement('script');cf.src='config.js';cf.onload=()=>{const S=window.SHOP||{},end=S.offerEndsAt?Date.parse(S.offerEndsAt):0,live=!end||Date.now()<end,f=v=>'₹'+Number(v).toLocaleString('en-IN'),pr=cta.querySelector('.pr');
-    if(live&&S.regularPrice>S.price){pr.innerHTML='<s>'+f(S.regularPrice)+'</s><b>'+f(S.price)+'</b><em>'+(S.offerLabel||'Launch offer')+'</em>';fab.innerHTML='🔓 Unlock all lessons · <b>'+f(S.price)+'</b>'}
-    else{const p=live?S.price:(S.regularPrice||S.price);pr.innerHTML='<b>'+f(p)+'</b>';fab.innerHTML='🔓 Unlock all lessons · <b>'+f(p)+'</b>'}};document.head.appendChild(cf);
+    if(live&&S.regularPrice>S.price){pr.innerHTML='<s>'+f(S.regularPrice)+'</s><b>'+f(S.price)+'</b><em>'+(S.offerLabel||'Launch offer')+'</em>';fab.innerHTML='🔓 Get full access · <b>'+f(S.price)+'</b>'}
+    else{const p=live?S.price:(S.regularPrice||S.price);pr.innerHTML='<b>'+f(p)+'</b>';fab.innerHTML='🔓 Get full access · <b>'+f(p)+'</b>'}};document.head.appendChild(cf);
   // reveal on scroll
   const all=[...document.querySelectorAll('.rv')];
   if('IntersectionObserver' in window&&!RM){const io=new IntersectionObserver((es,o)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');o.unobserve(e.target)}})},{threshold:.08});all.forEach((e,i)=>{e.style.transitionDelay=(e.classList.contains('part')?(i%4)*60:0)+'ms';io.observe(e)});
@@ -148,5 +148,5 @@ function parse(src){const out={title:'',intro:'',secs:[]};let cur=null,q=null;
   lessons.forEach(l=>l.addEventListener('toggle',()=>{if(l.open)l.querySelectorAll('.rv').forEach(e=>{if(RM||!('IntersectionObserver' in window))e.classList.add('in')})}));
   window.addEventListener('scroll',onScroll,{passive:true});onScroll();
  }
- if(here==='sample.html')fx(d);
+ if(here==='sample.html'||here==='week.html')fx(d);
 })();
