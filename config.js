@@ -8,6 +8,6 @@ window.SHOP = {
   razorpayButtonId: "",       // e.g. "pl_Abc123XYZ" from Razorpay Dashboard > Payment Button
   paymentLink: "",            // e.g. "https://rzp.io/l/yourlink" from Razorpay Dashboard > Payment Link / Page
   // Business details (Razorpay needs these on your legal pages)
-  business: { legalName: "YOUR NAME OR BUSINESS NAME", email: "you@example.com", phone: "", address: "City, State, India", gstin: "" },
+  business: { legalName: "Bhimashankar", email: "bhimarh2020@gmail.com", phone: "+91 9008243293", address: "Yelahanka, Bangalore 560064, Karnataka, India", gstin: "" },
   refundDays: 7               // length of your refund window, used on the Refund page
 };
