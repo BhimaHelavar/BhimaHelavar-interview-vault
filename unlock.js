@@ -10,19 +10,27 @@ async function dec(key,e){
   const p=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(e.i)},k,b64(e.c));
   return new TextDecoder().decode(p);
 }
-async function open(key){const html=await dec(key,E);ls.set('vaultkey',norm(key));document.open();document.write(html);document.close();}
-window.vaultUnlock={dec,norm};
+const API=(S.api||'').replace(/\/$/,'');
+function device(){let d=ls.get('vaultdev');if(!d){d=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');ls.set('vaultdev',d)}return d}
+async function post(path,body){const r=await fetch(API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});let j={};try{j=await r.json()}catch(e){}if(!r.ok)throw new Error(j.error||'network');return j}
+const MSG={invalid:'That key did not work. Check for typos.',revoked:'This key has been disabled. Contact support.',limit:'This key is already used on 2 devices. Contact support to reset it.',network:'Could not reach the server. Check your connection and try again.'};
+const msgOf=e=>MSG[e.message]||MSG.network;
+async function secret(key){return API?(await post('/unlock',{key:norm(key),device:device()})).ck:key}
+async function login(key){await secret(key);ls.set('vaultkey',norm(key))}
+async function claim(pid){return (await post('/claim',{payment_id:pid})).key}
+async function open(key){const html=await dec(await secret(key),E);ls.set('vaultkey',norm(key));document.open();document.write(html);document.close();}
+window.vaultUnlock={dec,norm,login,claim,msgOf};
 if(!E)return;
 function ui(msg){
   const buy=(S.paymentLink||S.razorpayButtonId)?'<a class="btn" href="index.html#buy" id="buy">Buy access</a>':'';
-  document.body.innerHTML='<div class="lockbox"><h1>'+(E.t||'Locked page')+'</h1><p>This page is part of the paid library. Enter the access key from your purchase email or payment confirmation.</p><input id="k" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off"><button class="btn" id="go">Unlock</button> '+buy+'<p class="err" id="err">'+(msg||'')+'</p><p class="sm"><a href="index.html">Overview</a> &middot; <a href="sample.html">Free sample</a></p></div>';
-  const go=async()=>{try{await open(document.getElementById('k').value)}catch(e){document.getElementById('err').textContent='That key did not work. Check for typos.'}};
+  document.body.innerHTML='<div class="lockbox"><h1>'+(E.t||'Locked page')+'</h1><p>This page is part of the paid library. Enter your personal access key. <a href="unlock.html">Lost it? Get it from your payment ID</a>.</p><input id="k" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off"><button class="btn" id="go">Unlock</button> '+buy+'<p class="err" id="err">'+(msg||'')+'</p><p class="sm"><a href="index.html">Overview</a> &middot; <a href="sample.html">Free sample</a></p></div>';
+  const go=async()=>{try{await open(document.getElementById('k').value)}catch(e){document.getElementById('err').textContent=msgOf(e)}};
   document.getElementById('go').onclick=go;document.getElementById('k').addEventListener('keydown',e=>{if(e.key==='Enter')go()});
 }
 const m=location.hash.match(/key=([A-Za-z0-9-]+)/);
 const saved=m?m[1]:ls.get('vaultkey');
 if(m)history.replaceState(null,'',location.pathname+location.search);
-if(saved&&crypto&&crypto.subtle){open(saved).catch(()=>{ls.del('vaultkey');ui('Saved key is no longer valid. Enter the current key.')})}
+if(saved&&crypto&&crypto.subtle){open(saved).catch(e=>{if(e.message!=='network')ls.del('vaultkey');ui(e.message==='network'?msgOf(e):'Saved key is no longer valid. '+msgOf(e))})}
 else if(!(crypto&&crypto.subtle)){document.body.innerHTML='<p style="padding:2rem">Open this site over https to unlock pages.</p>'}
 else ui();
 })();

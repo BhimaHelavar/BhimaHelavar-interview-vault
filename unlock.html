@@ -1,9 +1,13 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unlock</title><link rel="stylesheet" href="landing.css"></head><body>
-<div class="lockbox"><h1>Enter your access key</h1><p>You received it after payment.</p><input id="k" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off"><button class="btn" id="go">Open the library</button><p class="err" id="err"></p><p class="sm"><a href="index.html">Overview</a></p></div>
+<div class="lockbox"><h1>Enter your access key</h1><p>Your key is personal to you and works on up to 2 devices.</p><input id="k" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off"><button class="btn" id="go">Open the library</button><p class="err" id="err"></p>
+<hr style="margin:1.5rem 0;opacity:.2"><h2 style="font-size:1.1rem">Just paid? Get your key</h2><p class="sm">Enter the payment ID from your Razorpay receipt (starts with <b>pay_</b>).</p><input id="p" placeholder="pay_XXXXXXXXXXXXXX" autocomplete="off"><button class="btn" id="getkey">Get my key</button><p class="err" id="err2"></p><p class="sm"><a href="index.html">Overview</a></p></div>
 <script src="config.js"></script><script src="unlock.js"></script>
 <script>
-(function(){const ok=async k=>{try{const p=await fetch('check.json').then(r=>r.json());await vaultUnlock.dec(k,p);try{localStorage.setItem('vaultkey',vaultUnlock.norm(k))}catch(e){}location.replace('library.html')}catch(e){document.getElementById('err').textContent='That key did not work. Check for typos.'}};
-document.getElementById('go').onclick=()=>ok(document.getElementById('k').value);
-document.getElementById('k').addEventListener('keydown',e=>{if(e.key==='Enter')ok(e.target.value)});
+(function(){const V=vaultUnlock,$=id=>document.getElementById(id);
+const ok=async k=>{try{await V.login(k);location.replace('library.html')}catch(e){$('err').textContent=V.msgOf(e)}};
+$('go').onclick=()=>ok($('k').value);$('k').addEventListener('keydown',e=>{if(e.key==='Enter')ok(e.target.value)});
+const gk=async()=>{$('err2').style.color='';try{const key=await V.claim($('p').value);$('k').value=key;$('err2').style.color='#0a7';$('err2').textContent='Your key: '+key+'  (save it somewhere safe). Click "Open the library".'}catch(e){$('err2').textContent=e.message&&e.message!=='network'?e.message:V.msgOf(e)}};
+$('getkey').onclick=gk;
+const q=new URLSearchParams(location.search).get('razorpay_payment_id');if(q){$('p').value=q;gk()}
 const m=location.hash.match(/key=([A-Za-z0-9-]+)/);if(m){history.replaceState(null,'',location.pathname);ok(m[1])}})();
 </script></body></html>
